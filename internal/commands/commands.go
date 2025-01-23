@@ -33,7 +33,7 @@ func (c *Commands) Run(s *State, cmd Command) error {
 
 func HandlerLogin(s *State, cmd Command) error {
 	if len(cmd.Args) != 1 {
-		return errors.New("please specify a username: gator login <username>")
+		return errors.New("please specify a username: login <username>")
 	}
 
 	username := cmd.Args[0]
@@ -41,6 +41,41 @@ func HandlerLogin(s *State, cmd Command) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("User set to:", username)
+	fmt.Println("user set to:", username)
 	return nil
 }
+
+type CliCommand struct {
+	name        string
+	description string
+	callback    func(cfg *config.Config, args ...string) error
+}
+
+//func GetCommands() map[string]CliCommand {
+//	return map[string]CliCommand{
+//		"help": {
+//			name:        "help",
+//			description: "displays a help message",
+//			callback:    CommandHelp,
+//		},
+//		"login": {
+//			name:        "login",
+//			description: "login to the system",
+//			callback:    LoginHelp,
+//		},
+//	}
+//}
+//
+//func CommandHelp(*config.Config, ...string) error {
+//	for _, cmd := range GetCommands() {
+//		fmt.Printf("%s: %s\n", cmd.name, cmd.description)
+//	}
+//	return nil
+//}
+//
+//func LoginHelp(*config.Config, ...string) error {
+//	if len(os.Args) != 1 {
+//		fmt.Println("please specify a username: login <username>")
+//	}
+//	return nil
+//}

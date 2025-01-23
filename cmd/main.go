@@ -14,7 +14,7 @@ func main() {
 
 	cfg, err := config.Read()
 	if err != nil {
-		log.Fatalf("Error reading config: %v", err)
+		log.Fatalf("error reading config: %v", err)
 	}
 
 	state := &commands.State{
@@ -24,7 +24,7 @@ func main() {
 	cmds.Register("login", commands.HandlerLogin)
 
 	if len(os.Args) < 2 {
-		log.Fatal("Not enough arguments provided")
+		log.Fatal("please provide a command")
 	}
 
 	cmd := commands.Command{
