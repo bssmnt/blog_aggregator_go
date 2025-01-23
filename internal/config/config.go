@@ -18,6 +18,19 @@ func (cfg *Config) SetUser(userName string) error {
 	return write(*cfg)
 }
 
+func Save(cfg Config) error {
+	configPath, err := getConfigFilePath()
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath, data, 0644)
+}
+
 func getConfigFilePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
