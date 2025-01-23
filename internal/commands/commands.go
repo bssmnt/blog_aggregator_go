@@ -26,6 +26,12 @@ type Commands struct {
 	CommandNames map[string]func(*State, Command) error
 }
 
+type Feed struct {
+	FeedName string `db:"feed_name"`
+	FeedURL  string `db:"feed_url"`
+	UserName string `db:"user_name"`
+}
+
 func NewCommands() *Commands {
 	return &Commands{
 		CommandNames: make(map[string]func(*State, Command) error),
@@ -99,7 +105,7 @@ func HandlerRegister(s *State, cmd Command) error {
 	return nil
 }
 
-func Reset(s *State, cmd Command) error {
+func HandlerReset(s *State, cmd Command) error {
 	err := s.Db.DeleteAllUsers(context.Background())
 	if err != nil {
 		return err
@@ -107,7 +113,7 @@ func Reset(s *State, cmd Command) error {
 	return nil
 }
 
-func Users(s *State, cmd Command) error {
+func HandlerUsers(s *State, cmd Command) error {
 	allUsers, err := s.Db.GetUsers(context.Background())
 	if err != nil {
 		return err
@@ -128,7 +134,7 @@ func Users(s *State, cmd Command) error {
 	return nil
 }
 
-func Aggregate(s *State, cmd Command) error {
+func HandlerAgg(s *State, cmd Command) error {
 	ctx := context.Background()
 	feedURL := "https://www.wagslane.dev/index.xml"
 
@@ -142,7 +148,7 @@ func Aggregate(s *State, cmd Command) error {
 	return nil
 }
 
-func AddFeed(s *State, cmd Command) error {
+func HandlerAddFeed(s *State, cmd Command) error {
 
 	if len(cmd.Args) != 2 {
 		return errors.New("please specify a feed name and url: add <feed name> <url>")
@@ -170,7 +176,21 @@ func AddFeed(s *State, cmd Command) error {
 	feedID := params.ID
 	feedUserID := params.UserID
 
-	fmt.Printf("feed %s added, from URL %s, feed id: %v, added by %s\n", feedName, feedURL, feedID, feedUserID)
+	fmt.Printf("%s added, from URL %s, feed id: %v, added by %s\n", feedName, feedURL, feedID, feedUserID)
 
+	return nil
+}
+
+func HandlerFeeds(s *State, cmd Command) error {
+	ctx := context.Background()
+
+	feeds, err := s.Db.GetFeeds(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+		fmt.Printf("%s added, from URL %s, added by %s\n", feed.FeedName, feed.FeedUrl, feed.UsersName)
+	}
 	return nil
 }
