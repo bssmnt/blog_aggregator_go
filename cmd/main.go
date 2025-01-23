@@ -39,6 +39,8 @@ func main() {
 
 	cmds.Register("login", commands.HandlerLogin)
 	cmds.Register("register", commands.HandlerRegister)
+	cmds.Register("reset", commands.Reset)
+	cmds.Register("users", commands.Users)
 
 	if len(os.Args) < 2 {
 		log.Fatal("please provide a command")
