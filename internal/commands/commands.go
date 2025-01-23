@@ -3,6 +3,7 @@ package commands
 import (
 	"blog_aggregator_go/internal/config"
 	"blog_aggregator_go/internal/database"
+	"blog_aggregator_go/internal/rss"
 	"context"
 	"errors"
 	"fmt"
@@ -124,5 +125,19 @@ func Users(s *State, cmd Command) error {
 			fmt.Printf("* %s\n", user)
 		}
 	}
+	return nil
+}
+
+func Aggregate(s *State, cmd Command) error {
+	ctx := context.Background()
+	feedURL := "https://www.wagslane.dev/index.xml"
+
+	feed, err := rss.FetchFeed(ctx, feedURL)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%+v\n", feed)
+
 	return nil
 }
