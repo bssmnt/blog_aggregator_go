@@ -7,7 +7,7 @@ import (
 )
 
 type State struct {
-	Cfg *Config
+	Cfg *config.Config
 }
 
 type Command struct {
