@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/bssmnt/blog_aggregator_go/internal/commands"
-	"github.com/bssmnt/blog_aggregator_go/internal/config"
+	"blog_aggregator_go/internal/commands"
+	"blog_aggregator_go/internal/config"
 	"log"
 	"os"
 )

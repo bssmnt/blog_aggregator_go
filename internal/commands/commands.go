@@ -1,13 +1,13 @@
 package commands
 
 import (
+	"blog_aggregator_go/internal/config"
 	"errors"
 	"fmt"
-	"github.com/bssmnt/blog_aggregator_go/internal/config"
 )
 
 type State struct {
-	Cfg *config.Config
+	Cfg *Config
 }
 
 type Command struct {
