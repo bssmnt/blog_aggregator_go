@@ -98,37 +98,31 @@ func HandlerRegister(s *State, cmd Command) error {
 	return nil
 }
 
-//type CliCommand struct {
-//	name        string
-//	description string
-//	callback    func(cfg *config.Config, args ...string) error
-//}
+func Reset(s *State, cmd Command) error {
+	err := s.Db.DeleteAllUsers(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-//func GetCommands() map[string]CliCommand {
-//	return map[string]CliCommand{
-//		"help": {
-//			name:        "help",
-//			description: "displays a help message",
-//			callback:    CommandHelp,
-//		},
-//		"login": {
-//			name:        "login",
-//			description: "login to the system",
-//			callback:    LoginHelp,
-//		},
-//	}
-//}
-//
-//func CommandHelp(*config.Config, ...string) error {
-//	for _, cmd := range GetCommands() {
-//		fmt.Printf("%s: %s\n", cmd.name, cmd.description)
-//	}
-//	return nil
-//}
-//
-//func LoginHelp(*config.Config, ...string) error {
-//	if len(os.Args) != 1 {
-//		fmt.Println("please specify a username: login <username>")
-//	}
-//	return nil
-//}
+func Users(s *State, cmd Command) error {
+	allUsers, err := s.Db.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	if len(allUsers) == 0 {
+		fmt.Println("no users found")
+	}
+
+	currentUser := s.Cfg.CurrentUserName
+	for _, user := range allUsers {
+		if user == currentUser {
+			fmt.Printf("* %s (current)\n", currentUser)
+		} else {
+			fmt.Printf("* %s\n", user)
+		}
+	}
+	return nil
+}
