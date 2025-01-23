@@ -42,6 +42,7 @@ func main() {
 	cmds.Register("reset", commands.Reset)
 	cmds.Register("users", commands.Users)
 	cmds.Register("agg", commands.Aggregate)
+	cmds.Register("addfeed", commands.AddFeed)
 
 	if len(os.Args) < 2 {
 		log.Fatal("please provide a command")

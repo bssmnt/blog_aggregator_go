@@ -141,3 +141,36 @@ func Aggregate(s *State, cmd Command) error {
 
 	return nil
 }
+
+func AddFeed(s *State, cmd Command) error {
+
+	if len(cmd.Args) != 2 {
+		return errors.New("please specify a feed name and url: add <feed name> <url>")
+	}
+
+	ctx := context.Background()
+
+	currentUserName := s.Cfg.CurrentUserName
+	currentUser, err := s.Db.GetUser(ctx, currentUserName)
+	if err != nil {
+		return err
+	}
+
+	currentUserID := currentUser.ID
+
+	feedName := cmd.Args[0]
+	feedURL := cmd.Args[1]
+
+	params := database.CreateFeedParams{ID: uuid.New(), Name: feedName, Url: feedURL, UserID: currentUserID}
+	err = s.Db.CreateFeed(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	feedID := params.ID
+	feedUserID := params.UserID
+
+	fmt.Printf("feed %s added, from URL %s, feed id: %v, added by %s\n", feedName, feedURL, feedID, feedUserID)
+
+	return nil
+}
