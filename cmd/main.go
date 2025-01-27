@@ -4,7 +4,6 @@ import (
 	"blog_aggregator_go/internal/commands"
 	"blog_aggregator_go/internal/config"
 	"blog_aggregator_go/internal/database"
-	"database/sql"
 	_ "github.com/lib/pq"
 	"log"
 	"os"
@@ -17,11 +16,10 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable not set")
 	}
 
-	db, err := sql.Open("postgres", dbURL)
+	dbQueries, err := database.InitDB(dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dbQueries := database.New(db)
 
 	cmds := &commands.Commands{
 		CommandNames: make(map[string]func(*commands.State, commands.Command) error),
@@ -44,6 +42,8 @@ func main() {
 	cmds.Register("agg", commands.HandlerAgg)
 	cmds.Register("addfeed", commands.HandlerAddFeed)
 	cmds.Register("feeds", commands.HandlerFeeds)
+	cmds.Register("follow", commands.Follow)
+	cmds.Register("following", commands.Following)
 
 	if len(os.Args) < 2 {
 		log.Fatal("please provide a command")

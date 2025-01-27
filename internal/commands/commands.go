@@ -176,6 +176,15 @@ func HandlerAddFeed(s *State, cmd Command) error {
 	feedID := params.ID
 	feedUserID := params.UserID
 
+	now := time.Now()
+	_, err = s.Db.CreateFeedFollow(ctx, database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		UserID:    currentUserID,
+		FeedID:    feedID,
+	})
+
 	fmt.Printf("%s added, from URL %s, feed id: %v, added by %s\n", feedName, feedURL, feedID, feedUserID)
 
 	return nil
@@ -192,5 +201,67 @@ func HandlerFeeds(s *State, cmd Command) error {
 	for _, feed := range feeds {
 		fmt.Printf("%s added, from URL %s, added by %s\n", feed.FeedName, feed.FeedUrl, feed.UsersName)
 	}
+	return nil
+}
+
+func Follow(s *State, cmd Command) error {
+	ctx := context.Background()
+
+	currentUserName := s.Cfg.CurrentUserName
+	currentUser, err := s.Db.GetUser(ctx, currentUserName)
+	if err != nil {
+		return err
+	}
+
+	currentUserID := currentUser.ID
+
+	if len(cmd.Args) != 1 {
+		return errors.New("please provide url")
+	}
+
+	url := cmd.Args[0]
+
+	feed, err := s.Db.GetFeedByURL(ctx, url)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+
+	feedFollow, err := s.Db.CreateFeedFollow(ctx, database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		UserID:    currentUserID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Following '%v' as '%v'\n", feedFollow.FeedName, feedFollow.UserName)
+
+	return nil
+}
+
+func Following(s *State, cmd Command) error {
+	ctx := context.Background()
+
+	currentUserName := s.Cfg.CurrentUserName
+	currentUser, err := s.Db.GetUser(ctx, currentUserName)
+	if err != nil {
+		return err
+	}
+
+	feedFollows, err := s.Db.GetFeedFollowsForUser(ctx, currentUser.ID)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("currently following:")
+	for _, follow := range feedFollows {
+		fmt.Printf("- %s\n", follow.FeedName)
+	}
+
 	return nil
 }
