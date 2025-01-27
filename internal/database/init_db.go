@@ -8,6 +8,8 @@ import (
 )
 
 func InitDB(dbURL string) (*Queries, error) {
+	goose.SetLogger(goose.NopLogger())
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, err

@@ -45,6 +45,15 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteAllData = `-- name: DeleteAllData :exec
+TRUNCATE posts, feeds, users CASCADE
+`
+
+func (q *Queries) DeleteAllData(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllData)
+	return err
+}
+
 const deleteAllUsers = `-- name: DeleteAllUsers :exec
 DELETE
 FROM users

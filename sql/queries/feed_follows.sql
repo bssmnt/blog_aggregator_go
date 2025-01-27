@@ -18,3 +18,8 @@ SELECT feed_follows.*,
 FROM feed_follows
          JOIN feeds ON feeds.id = feed_follows.feed_id
 WHERE feed_follows.user_id = $1;
+
+
+-- name: UnfollowFeed :exec
+DELETE FROM feed_follows
+WHERE feed_id = $1 AND user_id = $2;

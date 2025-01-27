@@ -26,15 +26,25 @@ type Commands struct {
 	CommandNames map[string]func(*State, Command) error
 }
 
-type Feed struct {
-	FeedName string `db:"feed_name"`
-	FeedURL  string `db:"feed_url"`
-	UserName string `db:"user_name"`
-}
+func MiddlewareLoggedIn(handler interface{}) func(*State, Command) error {
+	return func(s *State, cmd Command) error {
+		if s.Cfg.CurrentUserName == "" {
+			return errors.New("no user is currently logged in")
+		}
 
-func NewCommands() *Commands {
-	return &Commands{
-		CommandNames: make(map[string]func(*State, Command) error),
+		user, err := s.Db.GetUser(context.Background(), s.Cfg.CurrentUserName)
+		if err != nil {
+			return err
+		}
+
+		switch h := handler.(type) {
+		case func(s *State, cmd Command) error:
+			return h(s, cmd)
+		case func(s *State, cmd Command, user database.User) error:
+			return h(s, cmd, user)
+		default:
+			return fmt.Errorf("invalid handler type: %T", h)
+		}
 	}
 }
 
@@ -106,7 +116,7 @@ func HandlerRegister(s *State, cmd Command) error {
 }
 
 func HandlerReset(s *State, cmd Command) error {
-	err := s.Db.DeleteAllUsers(context.Background())
+	err := s.Db.DeleteAllData(context.Background())
 	if err != nil {
 		return err
 	}
@@ -135,20 +145,27 @@ func HandlerUsers(s *State, cmd Command) error {
 }
 
 func HandlerAgg(s *State, cmd Command) error {
-	ctx := context.Background()
-	feedURL := "https://www.wagslane.dev/index.xml"
-
-	feed, err := rss.FetchFeed(ctx, feedURL)
-	if err != nil {
-		return err
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("expected 1 argument (time_between_reqs), got %d", len(cmd.Args))
 	}
 
-	fmt.Printf("%+v\n", feed)
+	timeBetweenReqs, err := time.ParseDuration(cmd.Args[0])
+	if err != nil {
+		return fmt.Errorf("invalid duration format: %v", err)
+	}
 
-	return nil
+	fmt.Printf("Collecting feeds every %v\n", timeBetweenReqs)
+
+	ticker := time.NewTicker(timeBetweenReqs)
+	for ; ; <-ticker.C {
+		if err := HandlerScrapeFeeds(s, cmd); err != nil {
+			fmt.Printf("Error scraping feeds: %v\n", err)
+			continue
+		}
+	}
 }
 
-func HandlerAddFeed(s *State, cmd Command) error {
+func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 
 	if len(cmd.Args) != 2 {
 		return errors.New("please specify a feed name and url: add <feed name> <url>")
@@ -156,19 +173,13 @@ func HandlerAddFeed(s *State, cmd Command) error {
 
 	ctx := context.Background()
 
-	currentUserName := s.Cfg.CurrentUserName
-	currentUser, err := s.Db.GetUser(ctx, currentUserName)
-	if err != nil {
-		return err
-	}
-
-	currentUserID := currentUser.ID
+	currentUserID := user.ID
 
 	feedName := cmd.Args[0]
 	feedURL := cmd.Args[1]
 
 	params := database.CreateFeedParams{ID: uuid.New(), Name: feedName, Url: feedURL, UserID: currentUserID}
-	err = s.Db.CreateFeed(ctx, params)
+	err := s.Db.CreateFeed(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -204,16 +215,10 @@ func HandlerFeeds(s *State, cmd Command) error {
 	return nil
 }
 
-func Follow(s *State, cmd Command) error {
+func HandlerFollow(s *State, cmd Command, user database.User) error {
 	ctx := context.Background()
 
-	currentUserName := s.Cfg.CurrentUserName
-	currentUser, err := s.Db.GetUser(ctx, currentUserName)
-	if err != nil {
-		return err
-	}
-
-	currentUserID := currentUser.ID
+	currentUserID := user.ID
 
 	if len(cmd.Args) != 1 {
 		return errors.New("please provide url")
@@ -239,21 +244,15 @@ func Follow(s *State, cmd Command) error {
 		return err
 	}
 
-	fmt.Printf("Following '%v' as '%v'\n", feedFollow.FeedName, feedFollow.UserName)
+	fmt.Printf("following '%v' as '%v'\n", feedFollow.FeedName, feedFollow.UserName)
 
 	return nil
 }
 
-func Following(s *State, cmd Command) error {
+func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	ctx := context.Background()
 
-	currentUserName := s.Cfg.CurrentUserName
-	currentUser, err := s.Db.GetUser(ctx, currentUserName)
-	if err != nil {
-		return err
-	}
-
-	feedFollows, err := s.Db.GetFeedFollowsForUser(ctx, currentUser.ID)
+	feedFollows, err := s.Db.GetFeedFollowsForUser(ctx, user.ID)
 	if err != nil {
 		return err
 	}
@@ -261,6 +260,89 @@ func Following(s *State, cmd Command) error {
 	fmt.Println("currently following:")
 	for _, follow := range feedFollows {
 		fmt.Printf("- %s\n", follow.FeedName)
+	}
+
+	return nil
+}
+
+func HandlerUnfollow(s *State, cmd Command, user database.User) error {
+	ctx := context.Background()
+
+	if len(cmd.Args) != 1 {
+		return errors.New("please provide valid syntax: unfollow <feed name>")
+	}
+
+	feedURL := cmd.Args[0]
+
+	feed, err := s.Db.GetFeedByURL(ctx, feedURL)
+	if err != nil {
+		return errors.New("feed not found, please check the url")
+	}
+
+	err = s.Db.UnfollowFeed(ctx, database.UnfollowFeedParams{
+		feed.ID,
+		user.ID,
+	})
+
+	if err != nil {
+		return errors.New("feed unfollow failed, are you definitely following this feed")
+	}
+
+	return nil
+}
+
+func HandlerScrapeFeeds(s *State, cmd Command) error {
+	ctx := context.Background()
+
+	feed, err := s.Db.GetNextFeedToFetch(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = s.Db.MarkFeedFetched(ctx, feed.ID)
+	if err != nil {
+		return err
+	}
+
+	rssFeed, err := rss.FetchFeed(ctx, feed.Url)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\nFetching from: %s\n", rssFeed.Channel.Title)
+	for _, item := range rssFeed.Channel.Item {
+		pubDate, err := time.Parse("Mon, 02 Jan 2006 15:04:05 -0700", item.PubDate)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.Db.GetPostByURL(ctx, database.GetPostByURLParams{
+			Url:    item.Link,
+			FeedID: feed.ID,
+		})
+		if err == nil {
+			continue
+		}
+
+		fmt.Printf("[%s] %s\n",
+			time.Now().Format("15:04:05"),
+			item.Title)
+
+		params := database.InsertPostParams{
+			ID:          uuid.New(),
+			Title:       item.Title,
+			Url:         item.Link,
+			FeedID:      feed.ID,
+			PublishedAt: pubDate,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		err = s.Db.InsertPost(ctx, params)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil

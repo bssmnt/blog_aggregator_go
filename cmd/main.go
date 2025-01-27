@@ -40,10 +40,13 @@ func main() {
 	cmds.Register("reset", commands.HandlerReset)
 	cmds.Register("users", commands.HandlerUsers)
 	cmds.Register("agg", commands.HandlerAgg)
-	cmds.Register("addfeed", commands.HandlerAddFeed)
-	cmds.Register("feeds", commands.HandlerFeeds)
-	cmds.Register("follow", commands.Follow)
-	cmds.Register("following", commands.Following)
+
+	cmds.Register("addfeed", commands.MiddlewareLoggedIn(commands.HandlerAddFeed))
+	cmds.Register("feeds", commands.MiddlewareLoggedIn(commands.HandlerFeeds))
+	cmds.Register("follow", commands.MiddlewareLoggedIn(commands.HandlerFollow))
+	cmds.Register("following", commands.MiddlewareLoggedIn(commands.HandlerFollowing))
+	cmds.Register("unfollow", commands.MiddlewareLoggedIn(commands.HandlerUnfollow))
+	cmds.Register("scrape", commands.MiddlewareLoggedIn(commands.HandlerScrapeFeeds))
 
 	if len(os.Args) < 2 {
 		log.Fatal("please provide a command")

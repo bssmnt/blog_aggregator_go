@@ -19,5 +19,8 @@ FROM users;
 SELECT name
 FROM users;
 
+-- name: DeleteAllData :exec
+TRUNCATE posts, feeds, users CASCADE;
+
 
 
