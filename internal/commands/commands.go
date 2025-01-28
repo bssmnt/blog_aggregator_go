@@ -5,10 +5,14 @@ import (
 	"blog_aggregator_go/internal/database"
 	"blog_aggregator_go/internal/rss"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"log"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,8 +22,9 @@ type State struct {
 }
 
 type Command struct {
-	Name string
-	Args []string
+	Name  string
+	Args  []string
+	Limit *int
 }
 
 type Commands struct {
@@ -296,6 +301,10 @@ func HandlerScrapeFeeds(s *State, cmd Command) error {
 
 	feed, err := s.Db.GetNextFeedToFetch(ctx)
 	if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			fmt.Printf("no new feeds to scrape since last attempt\n")
+			return nil
+		}
 		return err
 	}
 
@@ -311,22 +320,11 @@ func HandlerScrapeFeeds(s *State, cmd Command) error {
 
 	fmt.Printf("\nFetching from: %s\n", rssFeed.Channel.Title)
 	for _, item := range rssFeed.Channel.Item {
-		pubDate, err := time.Parse("Mon, 02 Jan 2006 15:04:05 -0700", item.PubDate)
+		pubDate, err := parseDate(item.PubDate)
 		if err != nil {
-			return err
-		}
-
-		_, err = s.Db.GetPostByURL(ctx, database.GetPostByURLParams{
-			Url:    item.Link,
-			FeedID: feed.ID,
-		})
-		if err == nil {
+			log.Printf("error parsing date for %s: %v", item.Title, err)
 			continue
 		}
-
-		fmt.Printf("[%s] %s\n",
-			time.Now().Format("15:04:05"),
-			item.Title)
 
 		params := database.InsertPostParams{
 			ID:          uuid.New(),
@@ -340,9 +338,65 @@ func HandlerScrapeFeeds(s *State, cmd Command) error {
 
 		err = s.Db.InsertPost(ctx, params)
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), "unique constraint") {
+				continue
+			}
+			log.Printf("error inserting post %s: %v", item.Title, err)
+			continue
 		}
 
+		fmt.Printf("[%s] %s\n",
+			time.Now().Format("15:04:05"),
+			item.Title)
+
+	}
+
+	return nil
+}
+
+func parseDate(dateStr string) (time.Time, error) {
+	formats := []string{
+		"Mon, 02 Jan 2006 15:04:05 -0700",
+		"Mon, 02 Jan 2006 15:04:05 MST",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02 15:04:05 -0700",
+		"2006-01-02T15:04:05-07:00",
+		"2006-01-02T15:04:05.999Z",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("could not parse date: %s", dateStr)
+}
+
+func HandlerBrowse(s *State, cmd Command, user database.User) error {
+	ctx := context.Background()
+	limit := 2
+
+	if len(cmd.Args) > 0 {
+		parsedLimit, err := strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("could not parse limit: %v", err)
+		}
+		limit = parsedLimit
+	}
+
+	posts, err := s.Db.GetPostsForUser(ctx, database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Printf("Title: %s\nURL: %s\nPublished: %s\n\n",
+			post.Title,
+			post.Url,
+			post.PublishedAt.Format(time.RFC822))
 	}
 
 	return nil

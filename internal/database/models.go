@@ -37,6 +37,7 @@ type Post struct {
 	PublishedAt time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Description sql.NullString
 }
 
 type User struct {

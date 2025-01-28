@@ -10,7 +10,8 @@ CREATE TABLE posts
         ON DELETE CASCADE,
     published_at TIMESTAMP   NOT NULL,
     created_at   TIMESTAMP   NOT NULL,
-    updated_at   TIMESTAMP   NOT NULL
+    updated_at   TIMESTAMP   NOT NULL,
+    description  TEXT
 );
 
 -- +goose Down

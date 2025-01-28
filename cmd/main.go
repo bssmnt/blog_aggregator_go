@@ -47,6 +47,7 @@ func main() {
 	cmds.Register("following", commands.MiddlewareLoggedIn(commands.HandlerFollowing))
 	cmds.Register("unfollow", commands.MiddlewareLoggedIn(commands.HandlerUnfollow))
 	cmds.Register("scrape", commands.MiddlewareLoggedIn(commands.HandlerScrapeFeeds))
+	cmds.Register("browse", commands.MiddlewareLoggedIn(commands.HandlerBrowse))
 
 	if len(os.Args) < 2 {
 		log.Fatal("please provide a command")

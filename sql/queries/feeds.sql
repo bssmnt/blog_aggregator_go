@@ -27,6 +27,8 @@ WHERE id = $1;
 -- name: GetNextFeedToFetch :one
 SELECT *
 FROM feeds
+WHERE last_fetched_at IS NULL
+   OR last_fetched_at < NOW() - INTERVAL '15 minutes'
 ORDER BY last_fetched_at NULLS FIRST LIMIT 1;
 
 
